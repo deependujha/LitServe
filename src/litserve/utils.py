@@ -24,7 +24,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 if TYPE_CHECKING:
-    from litserve.server import LitServer
+    from litserve.litserver import LitServer
 
 logger = logging.getLogger(__name__)
 

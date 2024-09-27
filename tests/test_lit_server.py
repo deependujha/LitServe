@@ -31,7 +31,7 @@ import pytest
 
 from litserve.connector import _Connector
 
-from litserve.server import LitServer
+from litserve.litserver import LitServer
 import litserve as ls
 from fastapi.testclient import TestClient
 from starlette.types import ASGIApp
@@ -42,7 +42,7 @@ def test_index(sync_testclient):
     assert sync_testclient.get("/").text == "litserve running"
 
 
-@patch("litserve.server.LitServer.lifespan")
+@patch("litserve.litserver.LitServer.lifespan")
 def test_device_identifiers(lifespan_mock, simple_litapi):
     server = LitServer(simple_litapi, accelerator="cpu", devices=1, timeout=10)
     assert server.device_identifiers("cpu", 1) == ["cpu:1"]
@@ -184,7 +184,7 @@ def test_mocked_accelerator():
         assert server._connector.accelerator == "mps"
 
 
-@patch("litserve.server.uvicorn")
+@patch("litserve.litserver.uvicorn")
 def test_server_run(mock_uvicorn):
     server = LitServer(SimpleLitAPI())
     with pytest.raises(ValueError, match="port must be a value from 1024 to 65535 but got"):
@@ -201,7 +201,7 @@ def test_server_run(mock_uvicorn):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Test is only for Unix")
-@patch("litserve.server.uvicorn")
+@patch("litserve.litserver.uvicorn")
 def test_start_server(mock_uvicon):
     server = LitServer(ls.test_examples.TestAPI(), spec=ls.OpenAISpec())
     sockets = MagicMock()
@@ -211,7 +211,7 @@ def test_start_server(mock_uvicon):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="Test is only for Unix")
-@patch("litserve.server.uvicorn")
+@patch("litserve.litserver.uvicorn")
 def test_server_run_with_api_server_worker_type(mock_uvicorn):
     api = ls.test_examples.SimpleLitAPI()
     server = ls.LitServer(api, devices=1)
@@ -245,7 +245,7 @@ def test_server_run_with_api_server_worker_type(mock_uvicorn):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Test is only for Windows")
-@patch("litserve.server.uvicorn")
+@patch("litserve.litserver.uvicorn")
 def test_server_run_windows(mock_uvicorn):
     api = ls.test_examples.SimpleLitAPI()
     server = ls.LitServer(api)
@@ -262,8 +262,10 @@ def test_server_terminate():
     server = LitServer(SimpleLitAPI())
     mock_manager = MagicMock()
 
-    with patch("litserve.server.LitServer._start_server", side_effect=Exception("mocked error")) as mock_start, patch(
-        "litserve.server.LitServer.launch_inference_worker", return_value=[mock_manager, [MagicMock()]]
+    with patch(
+        "litserve.litserver.LitServer._start_server", side_effect=Exception("mocked error")
+    ) as mock_start, patch(
+        "litserve.litserver.LitServer.launch_inference_worker", return_value=[mock_manager, [MagicMock()]]
     ) as mock_launch:
         with pytest.raises(Exception, match="mocked error"):
             server.run(port=8001)
@@ -316,7 +318,7 @@ class PredictErrorAPI(ls.test_examples.SimpleLitAPI):
 
 
 @pytest.mark.asyncio
-@patch("litserve.server.load_and_raise")
+@patch("litserve.litserver.load_and_raise")
 async def test_inject_context(mocked_load_and_raise):
     def dummy_load_and_raise(resp):
         raise pickle.loads(resp)

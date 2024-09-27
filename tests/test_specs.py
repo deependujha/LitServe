@@ -33,7 +33,7 @@ from litserve.specs.openai import OpenAISpec, ChatMessage
 @pytest.mark.asyncio
 async def test_openai_spec(openai_request_data):
     spec = OpenAISpec()
-    server = ls.LitServer(TestAPI(), spec=spec)
+    server = ls.HTTPServer(TestAPI(), spec=spec)
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             resp = await ac.post("/v1/chat/completions", json=openai_request_data, timeout=10)
@@ -55,7 +55,7 @@ async def test_openai_spec(openai_request_data):
     ],
 )
 async def test_openai_token_usage(api, batch_size, openai_request_data, openai_response_data):
-    server = ls.LitServer(api, spec=ls.OpenAISpec(), max_batch_size=batch_size, batch_timeout=0.01)
+    server = ls.HTTPServer(api, spec=ls.OpenAISpec(), max_batch_size=batch_size, batch_timeout=0.01)
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             resp = await ac.post("/v1/chat/completions", json=openai_request_data, timeout=10)
@@ -74,7 +74,7 @@ async def test_openai_token_usage(api, batch_size, openai_request_data, openai_r
 
 @pytest.mark.asyncio
 async def test_openai_spec_with_image(openai_request_data_with_image):
-    server = ls.LitServer(TestAPI(), spec=OpenAISpec())
+    server = ls.HTTPServer(TestAPI(), spec=OpenAISpec())
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             resp = await ac.post("/v1/chat/completions", json=openai_request_data_with_image, timeout=10)
@@ -87,7 +87,7 @@ async def test_openai_spec_with_image(openai_request_data_with_image):
 
 @pytest.mark.asyncio
 async def test_override_encode(openai_request_data):
-    server = ls.LitServer(TestAPIWithCustomEncode(), spec=OpenAISpec())
+    server = ls.HTTPServer(TestAPIWithCustomEncode(), spec=OpenAISpec())
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             resp = await ac.post("/v1/chat/completions", json=openai_request_data, timeout=10)
@@ -101,7 +101,7 @@ async def test_override_encode(openai_request_data):
 @pytest.mark.asyncio
 async def test_openai_spec_with_tools(openai_request_data_with_tools):
     spec = OpenAISpec()
-    server = ls.LitServer(TestAPIWithToolCalls(), spec=spec)
+    server = ls.HTTPServer(TestAPIWithToolCalls(), spec=spec)
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             resp = await ac.post("/v1/chat/completions", json=openai_request_data_with_tools, timeout=10)
@@ -121,7 +121,7 @@ async def test_openai_spec_with_tools(openai_request_data_with_tools):
 @pytest.mark.asyncio
 async def test_openai_spec_with_response_format(openai_request_data_with_response_format):
     spec = OpenAISpec()
-    server = ls.LitServer(TestAPIWithStructuredOutput(), spec=spec)
+    server = ls.HTTPServer(TestAPIWithStructuredOutput(), spec=spec)
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             resp = await ac.post("/v1/chat/completions", json=openai_request_data_with_response_format, timeout=10)
@@ -150,12 +150,12 @@ class IncorrectAPI2(IncorrectAPI1):
 
 @pytest.mark.asyncio
 async def test_openai_spec_validation(openai_request_data):
-    server = ls.LitServer(IncorrectAPI1(), spec=OpenAISpec())
+    server = ls.HTTPServer(IncorrectAPI1(), spec=OpenAISpec())
     with pytest.raises(ValueError, match="predict is not a generator"), wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager:
             await manager.shutdown()
 
-    server = ls.LitServer(IncorrectAPI2(), spec=OpenAISpec())
+    server = ls.HTTPServer(IncorrectAPI2(), spec=OpenAISpec())
     with pytest.raises(ValueError, match="encode_response is not a generator"), wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager:
             await manager.shutdown()
@@ -176,7 +176,7 @@ class PrePopulatedAPI(ls.LitAPI):
 async def test_oai_prepopulated_context(openai_request_data):
     openai_request_data["max_tokens"] = 3
     spec = OpenAISpec()
-    server = ls.LitServer(PrePopulatedAPI(), spec=spec)
+    server = ls.HTTPServer(PrePopulatedAPI(), spec=spec)
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             resp = await ac.post("/v1/chat/completions", json=openai_request_data, timeout=10)
@@ -196,7 +196,7 @@ class WrongLitAPI(ls.LitAPI):
 
 @pytest.mark.asyncio
 async def test_fail_http(openai_request_data):
-    server = ls.LitServer(WrongLitAPI(), spec=ls.OpenAISpec())
+    server = ls.HTTPServer(WrongLitAPI(), spec=ls.OpenAISpec())
     with wrap_litserve_start(server) as server:
         async with LifespanManager(server.app) as manager, AsyncClient(app=manager.app, base_url="http://test") as ac:
             res = await ac.post("/v1/chat/completions", json=openai_request_data, timeout=10)

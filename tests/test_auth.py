@@ -17,7 +17,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.testclient import TestClient
 
 from litserve import LitAPI, LitServer
-import litserve.server
+import litserve.litserver
 from litserve.utils import wrap_litserve_start
 
 
@@ -70,7 +70,7 @@ class SimpleLitAPI(LitAPI):
 
 
 def test_authorized_api_key():
-    litserve.server.LIT_SERVER_API_KEY = "abcd"
+    litserve.litserver.LIT_SERVER_API_KEY = "abcd"
     server = LitServer(SimpleLitAPI(), accelerator="cpu", devices=1, workers_per_device=1)
 
     with wrap_litserve_start(server) as server, TestClient(server.app) as client:
@@ -78,11 +78,11 @@ def test_authorized_api_key():
         response = client.post("/predict", headers={"X-API-Key": "abcd"}, json=input)
         assert response.status_code == 200
 
-    litserve.server.LIT_SERVER_API_KEY = None
+    litserve.litserver.LIT_SERVER_API_KEY = None
 
 
 def test_not_authorized_api_key():
-    litserve.server.LIT_SERVER_API_KEY = "abcd"
+    litserve.litserver.LIT_SERVER_API_KEY = "abcd"
     server = LitServer(SimpleLitAPI(), accelerator="cpu", devices=1, workers_per_device=1)
 
     with wrap_litserve_start(server) as server, TestClient(server.app) as client:
@@ -90,4 +90,4 @@ def test_not_authorized_api_key():
         response = client.post("/predict", headers={"X-API-Key": "wrong"}, json=input)
         assert response.status_code == 401
 
-    litserve.server.LIT_SERVER_API_KEY = None
+    litserve.litserver.LIT_SERVER_API_KEY = None

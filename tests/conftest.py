@@ -15,7 +15,7 @@ import time
 import psutil
 from typing import Generator
 
-from litserve.server import LitServer
+from litserve.litserver import LitServer
 import pytest
 from litserve.api import LitAPI
 from litserve.utils import wrap_litserve_start

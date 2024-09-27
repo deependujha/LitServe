@@ -13,12 +13,11 @@
 # limitations under the License.
 from jsonargparse import set_config_read_mode, set_docstring_parse_options, CLI
 
-from litserve.cli import hello_world
+from litserve.cli import generate_protobuf_file, hello_world
 
 
 def main():
-    print("main", __name__)
-    cli_components = {"hello_world": hello_world.hello_world}
+    cli_components = {"hello_world": hello_world, "generate_protobuf": generate_protobuf_file}
     set_docstring_parse_options(attribute_docstrings=True)
     set_config_read_mode(urls_enabled=True)
     CLI(cli_components)

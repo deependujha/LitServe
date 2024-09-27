@@ -14,7 +14,7 @@
 from fastapi import Request, Response
 from fastapi.testclient import TestClient
 
-from litserve import LitAPI, LitServer
+from litserve import LitAPI, HTTPServer
 from litserve.utils import wrap_litserve_start
 
 import torch
@@ -51,7 +51,7 @@ class SimpleLitAPI(LitAPI):
 
 
 def test_torch():
-    server = LitServer(SimpleLitAPI(), accelerator="cpu", devices=1, timeout=10)
+    server = HTTPServer(SimpleLitAPI(), accelerator="cpu", devices=1, timeout=10)
     with wrap_litserve_start(server) as server, TestClient(server.app) as client:
         response = client.post("/predict", json={"input": 4.0})
         assert response.json() == {"output": 9.0}
@@ -59,7 +59,7 @@ def test_torch():
 
 @pytest.mark.skipif(torch.cuda.device_count() == 0, reason="requires CUDA to be available")
 def test_torch_gpu():
-    server = LitServer(SimpleLitAPI(), accelerator="cuda", devices=1, timeout=10)
+    server = HTTPServer(SimpleLitAPI(), accelerator="cuda", devices=1, timeout=10)
     with wrap_litserve_start(server) as server, TestClient(server.app) as client:
         response = client.post("/predict", json={"input": 4.0})
         assert response.json() == {"output": 9.0}
