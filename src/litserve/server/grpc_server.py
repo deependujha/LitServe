@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import asyncio
+import json
 import logging
 import multiprocessing as mp
 import sys
@@ -60,6 +61,7 @@ async def response_queue_to_buffer(
             except Empty:
                 await asyncio.sleep(0.0001)
                 continue
+            print("response queue to buffer", uid, response)
             stream_response_buffer, event = response_buffer[uid]
             stream_response_buffer.append(response)
             event.set()
@@ -184,8 +186,6 @@ class GRPCServer:
                     print(f"field.name: {field.name}; {field=}")
                     if response.get(field.name):
                         setattr(rsp, field.name, response[field.name])
-                # Assuming response is a dictionary, manually map the values to the fields
-                # return _self.litserve_pb2.Response(message=response)
                 return rsp
 
         class LitServeServicerStream(self.litserve_pb2_grpc.LitServeServicer):
@@ -200,8 +200,17 @@ class GRPCServer:
 
                 _self.request_queue.put((response_queue_id, uid, time.monotonic(), request))
 
-                async for value in self.data_streamer(q, data_available=event):
-                    yield value
+                async for value in _self.data_streamer(q, data_available=event):
+                    rsp = _self.litserve_pb2.Response()
+                    print(f"grpc streaming server; {value=}")
+                    if(type(value) is str):
+                        value = json.loads(value)
+                    print(f"grpc streaming server; {value=}")
+                    for field in _self.litserve_pb2.Response.DESCRIPTOR.fields:
+                        print(f"field.name: {field.name}; {field=}")
+                        if value.get(field.name):
+                            setattr(rsp, field.name, value[field.name])
+                    yield rsp
 
         if self.stream:
             self.litserve_pb2_grpc.add_LitServeServicer_to_server(LitServeServicerStream(), app[0])
@@ -231,7 +240,10 @@ class GRPCServer:
         while True:
             await data_available.wait()
             while len(q) > 0:
+                print("data streamer q:", q)
                 data, status = q.popleft()
+                print(f"{len(q)=}")
+                print("data streamer data:", data,"; status:", status)
                 if status == LitAPIStatus.FINISH_STREAMING:
                     return
 
@@ -243,6 +255,7 @@ class GRPCServer:
                     if send_status:
                         yield data, status
                     return
+                print(f"meow; {data=}; {status=}")
                 if send_status:
                     yield data, status
                 else:

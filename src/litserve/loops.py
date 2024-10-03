@@ -258,6 +258,7 @@ def run_streaming_loop(
     callback_runner: CallbackRunner,
     protocol: str = "http",
 ):
+    print("running streaming loop")
     while True:
         try:
             response_queue_id, uid, timestamp, x_enc = request_queue.get(timeout=1.0)
@@ -302,6 +303,7 @@ def run_streaming_loop(
                 y_gen,
             )
             for y_enc in y_enc_gen:
+                print(f"{y_enc=}; {response_queue_id=}")
                 y_enc = lit_api.format_encoded_response(y_enc)
                 response_queues[response_queue_id].put((uid, (y_enc, LitAPIStatus.OK)))
             response_queues[response_queue_id].put((uid, ("", LitAPIStatus.FINISH_STREAMING)))
