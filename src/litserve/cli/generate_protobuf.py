@@ -55,7 +55,7 @@ SUCCESS_PROTOBUF_MSG = """
 
 - To generate grpc server code, run:
 {BOLD}{MAGENTA}
-python -m grpc_tools.protoc -Iproto/ --python_out=proto/ --pyi_out=proto/ --grpc_python_out=proto/ proto/litserve.proto
+python -m grpc_tools.protoc -I. --python_out=. --pyi_out=. --grpc_python_out=. litserve.proto
 {RESET}
 
 - In case of any error, make sure you have `grpcio-tools` installed. {MAGENTA}pip install grpcio-tools{RESET}
@@ -65,13 +65,13 @@ def generate_protobuf_file():
     """Create template protobuf file that is required for grpc server.
     """
 
-    os.makedirs("proto", exist_ok=True)
+    # os.makedirs("proto", exist_ok=True)
 
-    with open("proto/litserve.proto", "w") as f:
+    with open("litserve.proto", "w") as f:
         f.write(PROTOBUF_TEMPLATE)
 
     success_msg = SUCCESS_PROTOBUF_MSG.format(
-        protobuf_file_path=os.path.abspath("proto/litserve.proto"),
+        protobuf_file_path=os.path.abspath("litserve.proto"),
         BOLD=BOLD,
         MAGENTA=MAGENTA,
         GREEN=GREEN,

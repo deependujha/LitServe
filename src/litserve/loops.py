@@ -50,6 +50,7 @@ MultiPartParser.max_file_size = sys.maxsize
 
 def _inject_context(context: Union[List[dict], dict], func, *args, **kwargs):
     sig = inspect.signature(func)
+    print(f"injecting context {sig}", context, func, args, kwargs)
     if "context" in sig.parameters:
         return func(*args, **kwargs, context=context)
     return func(*args, **kwargs)
@@ -94,12 +95,22 @@ def collate_requests(
     return payloads, timed_out_uids
 
 
+def request_timed_out(protocol:str='http'):
+    if protocol == 'http':
+        return HTTPException(504, "Request timed out")
+    if protocol == 'grpc':
+        raise NotImplementedError("grpc protocol is not implemented yet")
+
+    raise ValueError("Invalid protocol")
+
+
 def run_single_loop(
     lit_api: LitAPI,
     lit_spec: LitSpec,
     request_queue: Queue,
     response_queues: List[Queue],
     callback_runner: CallbackRunner,
+    protocol: str = "http",
 ):
     while True:
         try:
@@ -115,7 +126,9 @@ def run_single_loop(
                 "has been timed out. "
                 "You can adjust the timeout by providing the `timeout` argument to LitServe(..., timeout=30)."
             )
-            response_queues[response_queue_id].put((uid, (HTTPException(504, "Request timed out"), LitAPIStatus.ERROR)))
+            response_queues[response_queue_id].put(
+                (uid, (request_timed_out(protocol=protocol), LitAPIStatus.ERROR))
+            )
             continue
         try:
             context = {}
@@ -139,14 +152,17 @@ def run_single_loop(
             callback_runner.trigger_event(EventTypes.AFTER_PREDICT, lit_api=lit_api)
 
             callback_runner.trigger_event(EventTypes.BEFORE_ENCODE_RESPONSE, lit_api=lit_api)
+            print(f"y: {y}")
             y_enc = _inject_context(
                 context,
                 lit_api.encode_response,
                 y,
             )
+            print(f"y_enc: {y_enc}")
             callback_runner.trigger_event(EventTypes.AFTER_ENCODE_RESPONSE, lit_api=lit_api)
-
-            response_queues[response_queue_id].put((uid, (y_enc, LitAPIStatus.OK)))
+            print(f"{response_queue_id=}, {uid=}, {y_enc=}")
+            response_queues[response_queue_id].put_nowait((uid, (y_enc, LitAPIStatus.OK)))
+            print("put into response queue")
         except Exception as e:
             logger.exception(
                 "LitAPI ran into an error while processing the request uid=%s.\n"
@@ -165,6 +181,7 @@ def run_batched_loop(
     max_batch_size: int,
     batch_timeout: float,
     callback_runner: CallbackRunner,
+    protocol: str = 'http',
 ):
     while True:
         batches, timed_out_uids = collate_requests(
@@ -180,7 +197,9 @@ def run_batched_loop(
                 "has been timed out. "
                 "You can adjust the timeout by providing the `timeout` argument to LitServe(..., timeout=30)."
             )
-            response_queues[response_queue_id].put((uid, (HTTPException(504, "Request timed out"), LitAPIStatus.ERROR)))
+            response_queues[response_queue_id].put(
+                (uid, (request_timed_out(protocol=protocol), LitAPIStatus.ERROR))
+            )
 
         if not batches:
             continue
@@ -237,6 +256,7 @@ def run_streaming_loop(
     request_queue: Queue,
     response_queues: List[Queue],
     callback_runner: CallbackRunner,
+    protocol: str = "http",
 ):
     while True:
         try:
@@ -253,7 +273,9 @@ def run_streaming_loop(
                 "has been timed out. "
                 "You can adjust the timeout by providing the `timeout` argument to LitServe(..., timeout=30)."
             )
-            response_queues[response_queue_id].put((uid, (HTTPException(504, "Request timed out"), LitAPIStatus.ERROR)))
+            response_queues[response_queue_id].put(
+                (uid, (request_timed_out(protocol=protocol), LitAPIStatus.ERROR))
+            )
             continue
 
         try:
@@ -300,6 +322,7 @@ def run_batched_streaming_loop(
     max_batch_size: int,
     batch_timeout: float,
     callback_runner: CallbackRunner,
+    protocol: str = 'http',
 ):
     while True:
         batches, timed_out_uids = collate_requests(
@@ -314,7 +337,9 @@ def run_batched_streaming_loop(
                 "has been timed out. "
                 "You can adjust the timeout by providing the `timeout` argument to LitServe(..., timeout=30)."
             )
-            response_queues[response_queue_id].put((uid, (HTTPException(504, "Request timed out"), LitAPIStatus.ERROR)))
+            response_queues[response_queue_id].put(
+                (uid, (request_timed_out(protocol=protocol), LitAPIStatus.ERROR))
+            )
 
         if not batches:
             continue
@@ -378,6 +403,7 @@ def inference_worker(
     stream: bool,
     workers_setup_status: Dict[str, bool],
     callback_runner: CallbackRunner,
+    protocol: str = 'http',
 ):
     callback_runner.trigger_event(EventTypes.BEFORE_SETUP, lit_api=lit_api)
     lit_api.setup(device)
@@ -394,15 +420,18 @@ def inference_worker(
     if stream:
         if max_batch_size > 1:
             run_batched_streaming_loop(
-                lit_api, lit_spec, request_queue, response_queues, max_batch_size, batch_timeout, callback_runner
+                lit_api, lit_spec, request_queue, response_queues, max_batch_size, batch_timeout, callback_runner,
+                protocol
             )
         else:
-            run_streaming_loop(lit_api, lit_spec, request_queue, response_queues, callback_runner)
+            run_streaming_loop(lit_api, lit_spec, request_queue, response_queues, callback_runner,
+                protocol)
         return
 
     if max_batch_size > 1:
         run_batched_loop(
-            lit_api, lit_spec, request_queue, response_queues, max_batch_size, batch_timeout, callback_runner
+            lit_api, lit_spec, request_queue, response_queues, max_batch_size, batch_timeout, callback_runner,
+            protocol
         )
     else:
-        run_single_loop(lit_api, lit_spec, request_queue, response_queues, callback_runner)
+        run_single_loop(lit_api, lit_spec, request_queue, response_queues, callback_runner, protocol)

@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import types
 from typing import Callable, Optional, Union, List
 
 
@@ -21,7 +22,7 @@ from litserve.specs.base import LitSpec
 from litserve.server import HTTPServer, GRPCServer
 
 
-class LitServer():
+class LitServer:
     def __init__(
         self,
         lit_api: LitAPI,
@@ -39,24 +40,51 @@ class LitServer():
         middlewares: Optional[list[Union[Callable, tuple[Callable, dict]]]] = None,
         loggers: Optional[Union[Logger, List[Logger]]] = None,
         protocol: str = "http",
+        litserve_pb2: types.ModuleType = None,
+        litserve_pb2_grpc: types.ModuleType = None,
+        enable_reflection: bool = True,
     ):
         if protocol not in ["http", "grpc", "both"]:
             raise ValueError("protocol must be one of: ['http', 'grpc', 'both']")
 
-        if protocol == 'http':
+        self.protocol = protocol
+
+        if protocol == "http":
             self.server = HTTPServer(
-                lit_api, accelerator, devices, workers_per_device, timeout, max_batch_size, batch_timeout, api_path,
-                stream, spec, max_payload_size, callbacks, middlewares, loggers
+                lit_api,
+                accelerator,
+                devices,
+                workers_per_device,
+                timeout,
+                max_batch_size,
+                batch_timeout,
+                api_path,
+                stream,
+                spec,
+                max_payload_size,
+                callbacks,
+                middlewares,
+                loggers,
             )
-        elif protocol == 'grpc':
+        elif protocol == "grpc":
             self.server = GRPCServer(
-                lit_api, accelerator, devices, workers_per_device, timeout, max_batch_size, batch_timeout, api_path,
-                stream, spec, max_payload_size, callbacks, middlewares, loggers
+                lit_api=lit_api,
+                litserve_pb2=litserve_pb2,
+                litserve_pb2_grpc=litserve_pb2_grpc,
+                enable_reflection=enable_reflection,
+                accelerator=accelerator,
+                devices=devices,
+                workers_per_device=workers_per_device,
+                timeout=timeout,
+                max_batch_size=max_batch_size,
+                batch_timeout=batch_timeout,
+                stream=stream,
+                max_payload_size=max_payload_size,
+                callbacks=callbacks,
+                loggers=loggers,
             )
         else:
             raise ValueError("GRPC server is not implemented yet")
-
-
 
     def run(
         self,
@@ -67,4 +95,7 @@ class LitServer():
         api_server_worker_type: Optional[str] = None,
         **kwargs,
     ):
-        self.server.run(port, num_api_servers, log_level, generate_client_file, api_server_worker_type, **kwargs)
+        if self.protocol == "http":
+            self.server.run(port, num_api_servers, log_level, generate_client_file, api_server_worker_type, **kwargs)
+        else:
+            self.server.run(port, num_api_servers, log_level, api_server_worker_type, **kwargs)
