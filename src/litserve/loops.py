@@ -50,7 +50,6 @@ MultiPartParser.max_file_size = sys.maxsize
 
 def _inject_context(context: Union[List[dict], dict], func, *args, **kwargs):
     sig = inspect.signature(func)
-    print(f"injecting context {sig}", context, func, args, kwargs)
     if "context" in sig.parameters:
         return func(*args, **kwargs, context=context)
     return func(*args, **kwargs)
@@ -152,17 +151,13 @@ def run_single_loop(
             callback_runner.trigger_event(EventTypes.AFTER_PREDICT, lit_api=lit_api)
 
             callback_runner.trigger_event(EventTypes.BEFORE_ENCODE_RESPONSE, lit_api=lit_api)
-            print(f"y: {y}")
             y_enc = _inject_context(
                 context,
                 lit_api.encode_response,
                 y,
             )
-            print(f"y_enc: {y_enc}")
             callback_runner.trigger_event(EventTypes.AFTER_ENCODE_RESPONSE, lit_api=lit_api)
-            print(f"{response_queue_id=}, {uid=}, {y_enc=}")
             response_queues[response_queue_id].put_nowait((uid, (y_enc, LitAPIStatus.OK)))
-            print("put into response queue")
         except Exception as e:
             logger.exception(
                 "LitAPI ran into an error while processing the request uid=%s.\n"
@@ -258,7 +253,6 @@ def run_streaming_loop(
     callback_runner: CallbackRunner,
     protocol: str = "http",
 ):
-    print("running streaming loop")
     while True:
         try:
             response_queue_id, uid, timestamp, x_enc = request_queue.get(timeout=1.0)
@@ -303,7 +297,6 @@ def run_streaming_loop(
                 y_gen,
             )
             for y_enc in y_enc_gen:
-                print(f"{y_enc=}; {response_queue_id=}")
                 y_enc = lit_api.format_encoded_response(y_enc)
                 response_queues[response_queue_id].put((uid, (y_enc, LitAPIStatus.OK)))
             response_queues[response_queue_id].put((uid, ("", LitAPIStatus.FINISH_STREAMING)))

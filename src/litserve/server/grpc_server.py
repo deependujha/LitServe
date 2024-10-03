@@ -61,7 +61,6 @@ async def response_queue_to_buffer(
             except Empty:
                 await asyncio.sleep(0.0001)
                 continue
-            print("response queue to buffer", uid, response)
             stream_response_buffer, event = response_buffer[uid]
             stream_response_buffer.append(response)
             event.set()
@@ -69,7 +68,6 @@ async def response_queue_to_buffer(
     else:
         while True:
             uid, response = await loop.run_in_executor(threadpool, response_queue.get)
-            print("response_queue.get", uid, response)
             event = response_buffer.pop(uid)
             response_buffer[uid] = response
             event.set()
@@ -167,7 +165,6 @@ class GRPCServer:
                 response_queue_id = app[0].response_queue_id
 
                 uid = uuid.uuid4()
-                print(f"litserver grpc predict got the {response_queue_id=}; {uid=}")
                 event = asyncio.Event()
                 _self.response_buffer[uid] = event
                 logger.info(f"Received request uid={uid}")
@@ -175,15 +172,12 @@ class GRPCServer:
                 _self.request_queue.put_nowait((response_queue_id, uid, time.monotonic(), request))
 
                 await event.wait()
-                print("event.wait() done")
                 response, status = _self.response_buffer.pop(uid)
-                print(f"{response=}, {status=}")
 
                 if status == LitAPIStatus.ERROR:
                     load_and_raise(response)
                 rsp = _self.litserve_pb2.Response()
                 for field in _self.litserve_pb2.Response.DESCRIPTOR.fields:
-                    print(f"field.name: {field.name}; {field=}")
                     if response.get(field.name):
                         setattr(rsp, field.name, response[field.name])
                 return rsp
@@ -196,18 +190,14 @@ class GRPCServer:
                 event = asyncio.Event()
                 q = deque()
                 _self.response_buffer[uid] = (q, event)
-                logger.debug(f"Received request uid={uid}")
 
                 _self.request_queue.put((response_queue_id, uid, time.monotonic(), request))
 
                 async for value in _self.data_streamer(q, data_available=event):
                     rsp = _self.litserve_pb2.Response()
-                    print(f"grpc streaming server; {value=}")
                     if(type(value) is str):
                         value = json.loads(value)
-                    print(f"grpc streaming server; {value=}")
                     for field in _self.litserve_pb2.Response.DESCRIPTOR.fields:
-                        print(f"field.name: {field.name}; {field=}")
                         if value.get(field.name):
                             setattr(rsp, field.name, value[field.name])
                     yield rsp
@@ -217,9 +207,7 @@ class GRPCServer:
         else:
             self.litserve_pb2_grpc.add_LitServeServicer_to_server(LitServeServicer(), app[0])
 
-        print("enable reflection", self.enable_reflection)
         if self.enable_reflection:
-            print("reflection enabled")
             try:
                 from grpc_reflection.v1alpha import reflection
 
@@ -240,10 +228,7 @@ class GRPCServer:
         while True:
             await data_available.wait()
             while len(q) > 0:
-                print("data streamer q:", q)
                 data, status = q.popleft()
-                print(f"{len(q)=}")
-                print("data streamer data:", data,"; status:", status)
                 if status == LitAPIStatus.FINISH_STREAMING:
                     return
 
@@ -255,7 +240,6 @@ class GRPCServer:
                     if send_status:
                         yield data, status
                     return
-                print(f"meow; {data=}; {status=}")
                 if send_status:
                     yield data, status
                 else:
@@ -305,7 +289,6 @@ class GRPCServer:
 
             for s in servers:
                 s.join()
-            print("All joining done!")
         except Exception as e:
             print("exception occurred:", e)
         finally:
@@ -323,7 +306,6 @@ class GRPCServer:
             # app = copy.deepcopy(self.app)
 
             # Get the current event loop
-            print("start grpc server in a thread........")
             if grpc_worker_type == "process":
                 ctx = mp.get_context("fork")
                 w = ctx.Process(target=self.start_grpc_server_in_process, args=(
@@ -412,13 +394,10 @@ class GRPCServer:
         app.response_queue_id = response_queue_id
         self.register_endpoints([app])
         app.add_insecure_port(f"[::]:{port}")
-        print("app running on port", port)
         # Run the server with the lifespan context manager
         async with self.lifespan(app):
             await app.start()
-            print("app running")
             await app.wait_for_termination()
-            print("app terminated")
 
     def start_grpc_server_in_process(self, response_queue_id, port):
         # This synchronous function wraps the async function in asyncio.run()sudo lsof -i -P -n | grep LISTEN
